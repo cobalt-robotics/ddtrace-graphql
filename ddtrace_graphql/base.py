@@ -68,6 +68,12 @@ def traced_graphql_wrapped(
             result = func(*args, **kwargs)
             return result
         finally:
+            # Attach the variables to the span
+            variables = kwargs.get("variable_values", {})
+            if variables is not None:
+                for key, value in variables.items():
+                    span.set_tag(key, value)
+
             # Catch the class of cases where result is not an ExecutionResult.
             # This includes subscription results from graphql-ws, where result
             # will be an Rx Observable.
