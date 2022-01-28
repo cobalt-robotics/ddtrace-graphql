@@ -74,15 +74,16 @@ def traced_graphql_wrapped(
                 for key, value in variables.items():
                     span.set_tag(key, value)
 
+
+            # `span.error` must be integer
+            span.error = int(result is None)
+
             # Catch the class of cases where result is not an ExecutionResult.
             # This includes subscription results from graphql-ws, where result
             # will be an Rx Observable.
             # TODO: figure out how to trace subscription messages
-            if not hasattr(result, 'errors'):
+            if result is not None and not isinstance(result, graphql.ExecutionResult):
                 return result
-
-            # `span.error` must be integer
-            span.error = int(result is None)
 
             if result is not None:
 
