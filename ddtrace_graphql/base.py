@@ -72,7 +72,7 @@ def traced_graphql_wrapped(
             # This includes subscription results from graphql-ws, where result
             # will be an Rx Observable.
             if not hasattr(result, 'errors'):
-                return
+                return result
 
             # `span.error` must be integer
             span.error = int(result is None)
