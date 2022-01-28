@@ -68,36 +68,42 @@ def traced_graphql_wrapped(
             result = func(*args, **kwargs)
             return result
         finally:
+            # Catch the class of cases where result is not an ExecutionResult.
+            # This includes subscription results from graphql-ws, where result
+            # will be an Rx Observable.
+            # TODO: figure out how to trace subscription messages
+            if not hasattr(result, 'errors'):
+                return result
+
             # `span.error` must be integer
             span.error = int(result is None)
 
             if result is not None:
+
                 span.error = 0
+                if result.errors:
+                    span.set_tag(
+                        ERRORS,
+                        utils.format_errors(result.errors))
+                    span.set_tag(
+                        ddtrace_errors.ERROR_STACK,
+                        utils.format_errors_traceback(result.errors))
+                    span.set_tag(
+                        ddtrace_errors.ERROR_MSG,
+                        utils.format_errors_msg(result.errors))
+                    span.set_tag(
+                        ddtrace_errors.ERROR_TYPE,
+                        utils.format_errors_type(result.errors))
 
-                if hasattr(result, 'errors'):
-                    if result.errors:
-                        span.set_tag(
-                            ERRORS,
-                            utils.format_errors(result.errors))
-                        span.set_tag(
-                            ddtrace_errors.ERROR_STACK,
-                            utils.format_errors_traceback(result.errors))
-                        span.set_tag(
-                            ddtrace_errors.ERROR_MSG,
-                            utils.format_errors_msg(result.errors))
-                        span.set_tag(
-                            ddtrace_errors.ERROR_TYPE,
-                            utils.format_errors_type(result.errors))
+                    span.error = int(utils.is_server_error(
+                        result,
+                        ignore_exceptions,
+                    ))
 
-                        span.error = int(utils.is_server_error(
-                            result,
-                            ignore_exceptions,
-                        ))
-
-                    span.set_metric(
-                        CLIENT_ERROR,
-                        int(bool(not span.error and result.errors))
-                    )
+                span.set_metric(
+                    CLIENT_ERROR,
+                    int(bool(not span.error and result.errors))
+                )
                 span.set_metric(INVALID, int(result.invalid))
                 span.set_metric(DATA_EMPTY, int(result.data is None))
 
