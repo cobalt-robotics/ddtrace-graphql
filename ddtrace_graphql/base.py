@@ -68,6 +68,12 @@ def traced_graphql_wrapped(
             result = func(*args, **kwargs)
             return result
         finally:
+            # Catch the class of cases where result is not an ExecutionResult.
+            # This includes subscription results from graphql-ws, where result
+            # will be an Rx Observable.
+            if not hasattr(result, 'errors'):
+                return
+
             # `span.error` must be integer
             span.error = int(result is None)
 
